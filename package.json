@@ -1,0 +1,20 @@
+{
+    "name": "hydroponic-pi",
+    "version": "0.0.1",
+    "private": true,
+    "description": "Control your plants in a hydroponic system with the Raspberry Pi",
+    "main": "index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "Jorge Diego Rodriguez",
+    "license": "ISC",
+    "dependencies": {
+        "blynk-library": "^0.5.4",
+        "dotenv": "^8.2.0",
+        "onoff": "^6.0.0",
+        "serialport": "^9.0.0",
+        "suncalc": "^1.8.0"
+    }
+}
