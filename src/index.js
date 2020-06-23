@@ -5,99 +5,98 @@ const Blynk = require('blynk-library')
 const Gpio = require('onoff').Gpio
 const sunCalc = require('suncalc')
 
-const blynk = new Blynk.Blynk(procces.env.AUTH)
+const blynk = new Blynk.Blynk(process.env.AUTH)
 const port = new SerialPort('/dev/ttyUSB0', { baudRate: 9600 })
 const parser = port.pipe(new Readline())
 const pump = new Gpio(18, 'out')
-
 const vPump = new blynk.VirtualPin(0)
 const vPumpTimer = new blynk.VirtualPin(1)
+const sensors = { ec: 2, ph: 3, waterTemp: 4, hum: 5, temp: 6 }
 
-const sensors = {
-    ec: new blynk.VirtualPin(2),
-    ph: new blynk.VirtualPin(3),
-    waterTemp: new blynk.VirtualPin(4),
-    hum: new blynk.VirtualPin(5),
-    temp: new blynk.VirtualPin(6),
-}
+function start() {
+    let sunRise = 0,
+        sunSet = 0,
+        curTime = 0,
+        nextWater = 0,
+        timeToWater = false,
+        pumpOn = false
 
-parser.on('data', (line) => {
-    const words = line.split(' ')
-    const sensor = words[0]
-    const value = words[1]
+    vPump.on('write', (param) => {
+        if (param[0] == '1') {
+            pump.writeSync(1)
+        } else {
+            pump.writeSync(0)
+        }
+    })
 
-    const vPin = sensors[sensor]
-    vPin.write(value)
-})
+    parser.on('data', (line) => {
+        const words = line.split(' ')
+        const sensor = words[0]
+        const value = words[1]
 
-vPump.on('write', (param) => {
-    if (param[0] == '1') {
+        blynk.virtualWrite(sensors[sensor], value)
+    })
+
+    function updateTimes() {
+        const time = new Date()
+        sunTimes = sunCalc.getTimes(time, process.env.LAT, process.env.LON)
+        sunRise =
+            (sunTimes.sunrise.getHours() + 2) * 60 +
+            sunTimes.sunrise.getMinutes()
+        sunSet =
+            (sunTimes.sunset.getHours() - 2) * 60 + sunTimes.sunset.getMinutes()
+        curTime = time.getHours() * 60 + time.getMinutes()
+        nextWater = sunRise
+        console.log('Updating times...')
+        console.log('Current time:', time)
+        console.log('Current time in minutes:', curTime)
+    }
+
+    function startPump() {
+        console.log('Starting pump...')
+        pumpOn = true
         pump.writeSync(1)
-    } else {
-        pump.writeSync(0)
-    }
-})
-
-const stopPump = function () {
-    pump.writeSync(0)
-    vPump.write(0)
-    let timeToPump = 45
-    vPumpTimer.write(timeToPump)
-    for (; timeToPump > 0; timeToPump--) {
+        vPump.write(1)
+        vPumpTimer.write(0)
         setTimeout(() => {
-            vPumpTimer.write(timeToPump)
-        }, 60000)
+            console.log('Stopping pump...')
+            pumpOn = false
+            pump.writeSync(0)
+            vPump.write(0)
+        }, 15 * 60000)
     }
-}
 
-const startPump = function () {
-    pump.writeSync(1)
-    vPump.write(1)
-    vPumpTimer.write(0)
-    setTimeout(stopPump, 15 * 60000)
-}
-
-const waterTime = function (nTimes, sunSet) {
-    for (let i = 1; i < nTimes; i++) {
-        startPump()
-        setTimeout(startPump, 60 * 60000)
+    function sendTimeToPump() {
+        const hours = parseInt(nextWater / 60)
+        console.log(`Next watering time is at: ${hours}:${nextWater - 60 * hours}`)
+        minToStart = curTime > nextWater ? minToStart = 24 * 60 - curTime + nextWater : nextWater - curTime
+        console.log('Minutes to start watering:', minToStart)
+        vPumpTimer.write(minToStart)
     }
-    vPumpTimer.write(999)
-    const timeToMidnight = (24 - sunSet) * 60 * 60000
-    setTimeout(checkSunTimes, timeToMidnight)
-}
 
-const checkSunTimes = function () {
-    // It's 12 pm, check for new sunRise and sunSet
-    const times = sunCalc.getTimes(new Date(), process.env.LAT, process.env.LON)
-    const sunRise = times.sunrise.getHours() + 2
-    const sunSet = times.sunset.getHours() - 1
-    const afterXHours = sunRise * 60 * 60000
-    const nTimes = sunSet - sunRise - 1
-    setTimeout(waterTime, afterXHours, nTimes, sunSet)
-}
+    function controlWater() {
+        if (curTime >= sunRise && curTime < sunSet && !timeToWater) {
+            timeToWater = true
+            startPump()
+            if (curTime + 45 < sunSet) {
+                nextWater = curTime + 45
+                setTimeout(startPump, 60 * 60000)
+            } else {
+                nextWater = sunRise
+                timeToWater = false
+            }
+        } else if (curTime === 24 * 60) {
+            updateTimes()
+        }
+        if (!pumpOn) {
+            sendTimeToPump()
+        }
+        curTime += 1
+    }
 
-const start = function () {
-    const times = sunCalc.getTimes(new Date(), process.env.LAT, process.env.LON)
-    const sunRise = times.sunrise.getHours() + 2
-    const sunSet = times.sunset.getHours() - 1
-    const curHour = new Date().getHours()
-
-    if (curHour === 0) {
-        checkSunTimes()
-    }
-    if (curHour < sunRise) {
-        const afterXHours = sunRise - curHour * 60 * 60000
-        const nTimes = sunSet - sunRise - 1
-        setTimeout(waterTime, afterXHours, nTimes, sunSet)
-    }
-    if (curHour < sunSet) {
-        const nTimes = sunSet - sunRise - 1 - curHour
-        waterTime(nTimes, sunSet)
-    } else {
-        const afterXHours = 24 - curHour * 60 * 60000
-        setTimeout(checkSunTimes, afterXHours)
-    }
+    updateTimes()
+    controlWater()
+    setInterval(controlWater, 60000)
 }
 
 blynk.on('connect', start) // Start when Blynk is ready
