@@ -17,7 +17,7 @@ The watering of the plants is being controlled. The Ph, electrical conductivity,
 -   Run `npm install` to install the dependencies
 -   `npm start` runs the code
 
-To execute the code on boot, copy the unit file to the systemd folder and give it permision:  
+To execute the code on boot, copy the unit file to the systemd folder and give it permissions:  
 `sudo cp hydroponicpi.service /etc/systemd/system/hydroponicpi.service`  
 `sudo chmod 644 /etc/systemd/system/hydroponicpi.service`  
 Then ensure that the service starts when the system boots:  
