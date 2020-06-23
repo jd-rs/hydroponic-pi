@@ -9,7 +9,7 @@ The watering of the plants is being controlled. The Ph, electrical conductivity,
 -   Install [platformio](https://platformio.org/) and make sure it's added to your path
 -   Run `pio lib install` to install the dependencies
 -   Build the code with `pio run`
--   Upload it with `pio run -t upload`
+-   Build and Upload it with `pio run -t upload`
 
 ## Raspberry Pi Code
 
