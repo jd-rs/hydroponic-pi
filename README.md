@@ -20,5 +20,5 @@ The watering of the plants is being controlled. The Ph, electrical conductivity,
 To execute the code on boot, copy the unit file to the systemd folder and give it permision:  
 `sudo cp hydroponicpi.service /etc/systemd/system/hydroponicpi.service`  
 `sudo chmod 644 /etc/systemd/system/hydroponicpi.service`  
-Then enusre that the service starts when the system boots:  
+Then ensure that the service starts when the system boots:  
 `sudo systemctl enable hydroponicpi`

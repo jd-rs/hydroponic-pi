@@ -1,11 +1,16 @@
-require('dotenv').config()
 const SerialPort = require('serialport')
 const Readline = require('@serialport/parser-readline')
 const Blynk = require('blynk-library')
 const Gpio = require('onoff').Gpio
 const sunCalc = require('suncalc')
 
-const blynk = new Blynk.Blynk(process.env.AUTH)
+const AUTH = 'VOgviAPpjrv3SaZATDB9Ig7G_2Fqh_OI'
+const LAT = 25.421391
+const LON = -101.000237
+const TIME_ON = 15
+const TIME_OFF = 45
+
+const blynk = new Blynk.Blynk(AUTH)
 const port = new SerialPort('/dev/ttyUSB0', { baudRate: 9600 })
 const parser = port.pipe(new Readline())
 const pump = new Gpio(18, 'out')
@@ -39,7 +44,7 @@ function start() {
 
     function updateTimes() {
         const time = new Date()
-        sunTimes = sunCalc.getTimes(time, process.env.LAT, process.env.LON)
+        sunTimes = sunCalc.getTimes(time, LAT, LON)
         sunRise =
             (sunTimes.sunrise.getHours() + 2) * 60 +
             sunTimes.sunrise.getMinutes()
@@ -57,30 +62,34 @@ function start() {
         pumpOn = true
         pump.writeSync(1)
         vPump.write(1)
-        vPumpTimer.write(0)
+        vPumpTimer.write('0h 0m')
         setTimeout(() => {
             console.log('Stopping pump...')
             pumpOn = false
             pump.writeSync(0)
             vPump.write(0)
-        }, 15 * 60000)
+            vPumpTimer.write(`0h ${TIME_OFF}m`)
+        }, TIME_ON * 60000)
     }
 
     function sendTimeToPump() {
         const hours = parseInt(nextWater / 60)
         console.log(`Next watering time is at: ${hours}:${nextWater - 60 * hours}`)
+
         minToStart = curTime > nextWater ? minToStart = 24 * 60 - curTime + nextWater : nextWater - curTime
-        console.log('Minutes to start watering:', minToStart)
-        vPumpTimer.write(minToStart)
+        const h = parseInt(minToStart / 60)
+        const m = minToStart - 60 * h
+        console.log(`Time to start watering: ${h}:${m}`)
+        vPumpTimer.write(`${h}h ${m}m`)
     }
 
     function controlWater() {
         if (curTime >= sunRise && curTime < sunSet && !timeToWater) {
             timeToWater = true
             startPump()
-            if (curTime + 45 < sunSet) {
-                nextWater = curTime + 45
-                setTimeout(startPump, 60 * 60000)
+            if (curTime + TIME_OFF < sunSet) {
+                nextWater = curTime + TIME_OFF
+                setTimeout(startPump, (TIME_ON + TIME_OFF) * 60000)
             } else {
                 nextWater = sunRise
                 timeToWater = false

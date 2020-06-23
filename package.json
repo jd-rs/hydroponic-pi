@@ -12,7 +12,6 @@
     "license": "ISC",
     "dependencies": {
         "blynk-library": "^0.5.4",
-        "dotenv": "^8.2.0",
         "onoff": "^6.0.0",
         "serialport": "^9.0.0",
         "suncalc": "^1.8.0"
