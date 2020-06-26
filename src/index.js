@@ -44,7 +44,7 @@ function start() {
 
     function updateTimes() {
         const time = new Date()
-        sunTimes = sunCalc.getTimes(time, LAT, LON)
+        const sunTimes = sunCalc.getTimes(time, LAT, LON)
         sunRise =
             (sunTimes.sunrise.getHours() + 2) * 60 +
             sunTimes.sunrise.getMinutes()
@@ -53,7 +53,7 @@ function start() {
         curTime = time.getHours() * 60 + time.getMinutes()
         nextWater = sunRise
         console.log('Updating times...')
-        console.log('Current time:', time)
+        console.log(`Current time: ${time.getHours()}:${time.getMinutes()}`)
         console.log('Current time in minutes:', curTime)
     }
 
@@ -73,11 +73,11 @@ function start() {
     }
 
     function sendTimeToPump() {
-        const hours = parseInt(nextWater / 60)
+        const hours = Math.floor(nextWater / 60)
         console.log(`Next watering time is at: ${hours}:${nextWater - 60 * hours}`)
 
-        minToStart = curTime > nextWater ? minToStart = 24 * 60 - curTime + nextWater : nextWater - curTime
-        const h = parseInt(minToStart / 60)
+        const minToStart = curTime > nextWater ? 24 * 60 - curTime + nextWater : nextWater - curTime
+        const h = Math.floor(minToStart / 60)
         const m = minToStart - 60 * h
         console.log(`Time to start watering: ${h}:${m}`)
         vPumpTimer.write(`${h}h ${m}m`)
