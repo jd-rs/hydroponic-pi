@@ -4,7 +4,7 @@
 #include <DHT.h>
 
 // Sensors
-int waterTempPin = 9;
+int waterTempPin = 11;
 int DHTPin = 12;
 int ECPin = A0;
 int ECGround = A1;
@@ -75,7 +75,7 @@ void GetEC()
 // that you define how often to send data to Blynk App.
 void sensePh()
 {
-  ph = analogRead(PhPin) * -0.0284 + 22.6688; // Get Ph
+  ph = analogRead(PhPin) * -0.02672897196 + 22.4964485963; // Get Ph
   h = dht.getHumidity();
   t = dht.getTemperature();
 
