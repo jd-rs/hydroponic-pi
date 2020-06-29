@@ -37,6 +37,7 @@ The data is being displayed using the [Blynk](https://blynk.io/) app, where the 
 -   Run `pio lib install` to install the dependencies
 -   Build the code with `pio run`
 -   Build and Upload it with `pio run -t upload`
+-   `pio device monitor` opens the serial monitor
 
 ## Raspberry Pi Code
 
