@@ -87,12 +87,12 @@ function start() {
         if (curTime >= sunRise && curTime < sunSet && !timeToWater) {
             timeToWater = true
             startPump()
-            if (curTime + TIME_OFF < sunSet) {
+            if (curTime + TIME_ON + TIME_OFF < sunSet) {
                 nextWater = curTime + TIME_OFF
                 setTimeout(startPump, (TIME_ON + TIME_OFF) * 60000)
             } else {
                 nextWater = sunRise
-                timeToWater = false
+                setTimeout(() => timeToWater = false, (TIME_ON + TIME_OFF) * 60000)
             }
         } else if (curTime === 24 * 60) {
             updateTimes()
