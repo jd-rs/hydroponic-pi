@@ -23,7 +23,6 @@ function start() {
         sunSet = 0,
         curTime = 0,
         nextWater = 0,
-        timeToWater = false,
         pumpOn = false
 
     vPump.on('write', (param) => {
@@ -51,7 +50,6 @@ function start() {
         sunSet =
             (sunTimes.sunset.getHours() - 2) * 60 + sunTimes.sunset.getMinutes()
         curTime = time.getHours() * 60 + time.getMinutes()
-        nextWater = sunRise
         console.log('Updating times...')
         console.log(`Current time: ${time.getHours()}:${time.getMinutes()}`)
         console.log('Current time in minutes:', curTime)
@@ -83,18 +81,18 @@ function start() {
         vPumpTimer.write(`${h}h ${m}m`)
     }
 
-    function controlWater() {
-        if (curTime >= sunRise && curTime < sunSet && !timeToWater) {
-            timeToWater = true
-            startPump()
-            if (curTime + TIME_ON + TIME_OFF < sunSet) {
-                nextWater = curTime + TIME_OFF
-                setTimeout(startPump, (TIME_ON + TIME_OFF) * 60000)
-            } else {
-                nextWater = sunRise
-                setTimeout(() => timeToWater = false, (TIME_ON + TIME_OFF) * 60000)
-            }
-        } else if (curTime === 24 * 60) {
+    function timeToWater() {
+        startPump()
+        if (curTime + TIME_ON + TIME_OFF < sunSet) {
+            nextWater = curTime + TIME_OFF
+        } else {
+            nextWater = sunRise
+        }
+        setTimeout(timeToWater, nextWater * 60000)
+    }
+
+    function main() {
+        if (curTime === 24 * 60) {
             updateTimes()
         }
         if (!pumpOn) {
@@ -104,8 +102,14 @@ function start() {
     }
 
     updateTimes()
-    controlWater()
-    setInterval(controlWater, 60000)
+    if (curTime >= sunRise && curTime < sunSet) {
+        nextWater = 0
+    } else {
+        nextWater = sunRise
+    }    
+    setTimeout(timeToWater, nextWater * 60000)
+    main()
+    setInterval(main, 60000)
 }
 
 blynk.on('connect', start) // Start when Blynk is ready
