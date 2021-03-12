@@ -15,6 +15,11 @@ OneWire oneWire(waterTempPin);       // Setup a oneWire instance to communicate 
 DallasTemperature sensors(&oneWire); // Pass our oneWire reference to Dallas Temperature.
 DHT dht;
 
+// ph constants
+float m = -0.02244;
+float b = 10.18357;
+
+// ec constants
 int R1 = 1000;
 int Ra = 25; //Resistance of powering Pins
 
@@ -35,8 +40,10 @@ float buffer = 0;
 int chk;
 
 float ph;
+float wt;
 float t;
 float h;
+char *str;
 
 void GetEC()
 {
@@ -44,6 +51,7 @@ void GetEC()
   //*********Reading Temperature Of Solution *******************//
   sensors.requestTemperatures();            // Send the command to get temperatures
   Temperature = sensors.getTempCByIndex(0); //Stores Value in Variable
+  wt += Temperature;
 
   //************Estimates Resistance of Liquid ****************//
   pinMode(ECPower, OUTPUT);  //Setting pin for sourcing current
@@ -66,8 +74,8 @@ void GetEC()
   EC = 1000 / (Rc * K);
 
   //*************Compensating For Temperaure********************//
-  EC25 = EC / (1 + TemperatureCoef * (Temperature - 25.0));
-  ppm = (EC25) * (PPMconversion * 1000);
+  EC25 += EC / (1 + TemperatureCoef * (Temperature - 25.0));
+  // ppm = (EC25) * (PPMconversion * 1000);
 }
 
 // This function sends Arduino's up time every second to Virtual Pin (5).
@@ -75,27 +83,30 @@ void GetEC()
 // that you define how often to send data to Blynk App.
 void sensePh()
 {
-  ph = analogRead(PhPin) * -0.02672897196 + 22.4964485963; // Get Ph
-  h = dht.getHumidity();
-  t = dht.getTemperature();
-
-  Serial.print("ph ");
-  Serial.println(ph);
-  Serial.print("hum ");
-  Serial.println(h);
-  Serial.print("temp ");
-  Serial.println(t);
-  ;
+  ph = 0;
+  t = 0;
+  h = 0;
+  for(int i = 0; i < 5; i++) {
+    ph += analogRead(PhPin) * m + b; // Get Ph
+    t += dht.getTemperature();
+    h += dht.getHumidity();    
+    delay(1000);
+  }
+  ph /= 5;
+  t /= 5;
+  h /= 5;
 }
 
 void senseEC()
 {
-  GetEC(); // sense EC
-
-  Serial.print("ec ");
-  Serial.println(EC25);
-  Serial.print("waterTemp ");
-  Serial.println(Temperature);
+  wt = 0;
+  EC25 = 0;
+  for (int i = 0; i < 5; i ++) {
+    GetEC(); // sense EC
+    delay(900);
+  }
+  wt /= 5;
+  EC25 /= 5;
 }
 
 void setup()
@@ -118,5 +129,14 @@ void loop()
   senseEC();
   delay(5000);
   sensePh();
-  delay(5000);
+  Serial.print(wt);
+  Serial.print(" ");
+  Serial.print(ph);
+  Serial.print(" ");
+  Serial.print(EC25);
+  Serial.print(" ");
+  Serial.print(t);
+  Serial.print(" ");
+  Serial.println(h);
+  delay(585000);
 }

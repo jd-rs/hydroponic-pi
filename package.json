@@ -13,6 +13,7 @@
     "dependencies": {
         "blynk-library": "^0.5.4",
         "onoff": "^6.0.0",
+        "pg": "^8.5.1",
         "serialport": "^9.0.0",
         "suncalc": "^1.8.0"
     }

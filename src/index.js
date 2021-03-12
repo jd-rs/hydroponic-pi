@@ -3,21 +3,36 @@ const Readline = require("@serialport/parser-readline")
 const Blynk = require("blynk-library")
 const Gpio = require("onoff").Gpio
 const sunCalc = require("suncalc")
+const { Client } = require('pg')
 
 const AUTH = "VOgviAPpjrv3SaZATDB9Ig7G_2Fqh_OI"
 const LAT = 25.421391
 const LON = -101.000237
-const TIME_ON = 15
-const TIME_OFF = 45
+
+const client = new Client({
+    user: 'jd@jdrs',
+    host: 'jdrs.postgres.database.azure.com',
+    database: 'postgres',
+    password: 'Flotuss.1',
+    port: 5432,
+})
+client.connect()
+
+const text = 'INSERT INTO sensors(w_temperature, ph, ec, temperature, humidity) VALUES($1, $2, $3, $4, $5) RETURNING *'
 
 const blynk = new Blynk.Blynk(AUTH)
 const port = new SerialPort("/dev/ttyUSB0", { baudRate: 9600 })
 const parser = port.pipe(new Readline())
 const pump = new Gpio(18, "out")
-const vPump = new blynk.VirtualPin(0)
-const vTimerLabel = new blynk.VirtualPin(7)
-const vTimer = new blynk.VirtualPin(1)
-const sensors = { ec: 2, ph: 3, waterTemp: 4, hum: 5, temp: 6 }
+// Virtual Pins
+// 0 = waterTemp, 1 = ph, 2 = ec, 3 = temp, 4 = hum
+const vPump = new blynk.VirtualPin(5)
+const vTimerLabel = new blynk.VirtualPin(6)
+const vTimer = new blynk.VirtualPin(7)
+const vTimeOn = new blynk.VirtualPin(8)
+const vTimeOff = new blynk.VirtualPin(9)
+let timeOn = 15
+let timeOff = 45
 
 function getTimeLeft(countdown) {
     const now = new Date().getTime()
@@ -45,8 +60,11 @@ function timer(callback, countdown) {
 
 function getSunTimes(day) {
     const sunTimes = sunCalc.getTimes(day, LAT, LON)
-    const offset = 2 * 60 * 60 * 1000 
-    return [sunTimes.sunrise.getTime() + offset, sunTimes.sunset.getTime() - offset]
+    const offset = 2 * 60 * 60 * 1000
+    return [
+        sunTimes.sunrise.getTime() + offset,
+        sunTimes.sunset.getTime() - offset,
+    ]
 }
 
 function startPump() {
@@ -61,15 +79,15 @@ function startPump() {
         vPump.write(0)
 
         const curTime = new Date().getTime()
-        const [sunrise, sunset] = getSunTimes(curTime)
-        let nextWater = curTime + TIME_OFF * 60000
+        const sunset = getSunTimes(curTime)[1]
+        let nextWater = curTime + timeOff * 60000
         if (nextWater >= sunset) {
-            const tomorrow = new Date().setDate(new Date().getDate()+1) 
+            const tomorrow = new Date().setDate(new Date().getDate() + 1)
             nextWater = getSunTimes(tomorrow)[0]
         }
         vTimerLabel.write("Time to water:")
         timer(startPump, nextWater)
-    }, new Date().getTime() + TIME_ON * 60000)
+    }, new Date().getTime() + timeOn * 60000)
 }
 
 function start() {
@@ -81,14 +99,30 @@ function start() {
         }
     })
 
-    parser.on("data", (line) => {
-        const words = line.split(" ")
-        const sensor = words[0]
-        const value = words[1]
-
-        blynk.virtualWrite(sensors[sensor], value)
+    vTimeOn.on("write", (param) => {
+        timeOn = parseInt(param[0])
     })
 
+    vTimeOff.on("write", (param) => {
+        timeOff = parseInt(param[0])
+    })
+
+    parser.on("data", (line) => {
+        const values = line.split(" ")
+        client.query(text, values, (err, res) => {
+            if (err) {
+                console.log(err.stack)
+            } else {
+                console.log(res.rows[0])
+            }
+        })
+        for (let i = 0; i < values.length; i++) {
+            blynk.virtualWrite(i, values[i])
+        }
+    })
+
+    vTimeOn.write(timeOn)
+    vTimeOff.write(timeOff)
     const [sunrise, sunset] = getSunTimes(new Date())
     const curTime = new Date().getTime()
     if (curTime >= sunrise && curTime < sunset) {
@@ -96,13 +130,12 @@ function start() {
     } else {
         let nextWater = sunrise
         if (curTime >= sunrise) {
-            const tomorrow = new Date().setDate(new Date().getDate()+1) 
+            const tomorrow = new Date().setDate(new Date().getDate() + 1)
             nextWater = getSunTimes(tomorrow)[0]
         }
-        vTimerLabel.write("Time to start:")
+        vTimerLabel.write("Time to water:")
         timer(startPump, nextWater)
     }
 }
 
 blynk.on("connect", start) // Start when Blynk is ready
-
